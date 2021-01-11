@@ -1,2 +1,26 @@
 
-<div class="map-container" #mapViewElement></div>
+<mat-card class="map-card">
+  <mat-card-header>
+    <mat-card-title>Mapa Arcgis</mat-card-title>
+    <mat-card-subtitle>
+      <section class="layers-section">
+        <form *ngIf="this.layersFormGroup" [formGroup]="this.layersFormGroup">
+          <mat-checkbox formControlName="populacao">
+            Populacao
+          </mat-checkbox>
+          <mat-checkbox formControlName="idhm">
+            IDHM
+          </mat-checkbox>
+          <mat-checkbox formControlName="pib">
+            PIB
+          </mat-checkbox>
+        </form>
+      </section>
+    </mat-card-subtitle>
+  </mat-card-header>
+  <mat-card-content>
+    <div class="map-container" #mapViewElement></div>
+  </mat-card-content>
+</mat-card>
+
+
