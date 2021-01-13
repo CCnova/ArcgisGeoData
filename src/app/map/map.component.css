@@ -4,9 +4,9 @@
 }
 
 .map-container {
-  width: 1200px;
+  width: 1000px;
   height: 600px;
-  margin: 100px;
+  /* margin: 100px; */
 }
 
 .mat-checkbox {
