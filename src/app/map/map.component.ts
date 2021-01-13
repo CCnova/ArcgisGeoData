@@ -1,6 +1,12 @@
 import { Component, ElementRef, OnInit, Output, ViewChild } from '@angular/core';
 import { FormControl, FormGroup } from '@angular/forms';
 import { loadModules } from 'esri-loader';
+import WebMap from '@arcgis/core/WebMap';
+import MapView from '@arcgis/core/views/MapView';
+import Portal from '@arcgis/core/portal/Portal';
+import FeatureLayer from '@arcgis/core/layers/FeatureLayer';
+import PopupTemplate from '@arcgis/core/PopupTemplate';
+import Popup from '@arcgis/core/widgets/Popup';
 
 @Component({
   selector: 'app-map',
@@ -12,23 +18,17 @@ export class MapComponent implements OnInit {
   @ViewChild('mapViewElement') private mapViewElement: ElementRef;
   @Output() public layersFormGroup: FormGroup;
   public layers: any[];
-  public populacaoLayer: any;
+  public populacaoLayer: FeatureLayer;
   public idhmLayer: any;
   public pibLayer: any;
-  public arcgisPortal: any;
-  public portalMap: any;
-  public mapView: any;
+  public arcgisPortal: Portal;
+  public portalMap: WebMap;
+  public mapView: MapView;
 
   constructor() {}
 
   public ngOnInit(): void {
-    this.loadEsriModules().then(
-      ([EsriWebMap, EsriMapView, ArcGisPortal]) => {
-        this.arcgisPortal = this.loadArcgisPortal(ArcGisPortal);
-
-        this.arcgisPortal.load().then(() => {this.renderEsriMap(EsriWebMap, EsriMapView)});
-      }
-    );
+    this.loadArcgisPortal().then(() => this.renderEsriMap());
   }
 
   public loadEsriModules(): Promise<any> {
@@ -39,6 +39,13 @@ export class MapComponent implements OnInit {
     ]);
   }
 
+  public loadArcgisPortal(): Promise<any> {
+   this.arcgisPortal = new Portal();
+    this.arcgisPortal.authMode = "immediate";
+
+    return this.arcgisPortal.load();
+  }
+
   public initLayersFormGroup(): void {
     this.layersFormGroup = new FormGroup({
       populacao: new FormControl(true),
@@ -47,40 +54,31 @@ export class MapComponent implements OnInit {
     });
   }
 
-  public loadArcgisPortal(
-    ArcGisPortalClass: any,
-  ): any {
-    const arcgisPortal = new ArcGisPortalClass();
-    arcgisPortal.authMode = "immediate";
-
-    return arcgisPortal;
-  }
-
-  public renderEsriMap(MapClass: any, MapViewClass: any): void {
-     this.portalMap = new MapClass({
+  public renderEsriMap(): void {
+     this.portalMap = new WebMap({
       portalItem: {
         id: '4cecdda8e94a4e48bbc2e75bedbee3ef',
       }
     });
 
     this.portalMap.when(() => {
-      this.registerLayers();
+      this.setupLayers();
       this.initLayersFormGroup();
       this.registerCheckboxListeners();
       this.registerViewClickListeners();
     });
 
-    this.mapView = new MapViewClass({
+    this.mapView = new MapView({
       container: this.mapViewElement.nativeElement,
       map: this.portalMap,
       zoom: 6,
     });
   }
 
-  public registerLayers(): void {
-    this.populacaoLayer = this.portalMap.layers.items[0];
-    this.pibLayer = this.portalMap.layers.items[1];
-    this.idhmLayer = this.portalMap.layers.items[2];
+  public setupLayers(): void {
+    this.populacaoLayer = this.portalMap.layers.get('items')[0];
+    this.pibLayer = this.portalMap.layers.get('items')[1];
+    this.idhmLayer = this.portalMap.layers.get('items')[2];
   }
 
   public registerCheckboxListeners(): void {
@@ -106,16 +104,41 @@ export class MapComponent implements OnInit {
   public registerViewClickListeners(): void {
     this.mapView.popup.autoOpenEnabled = false;
 
-    this.mapView.on('click', (event) => {
+    this.mapView.on('click', (event: __esri.MapViewClickEvent) => {
       this.clickEventListener(event);
     });
   }
 
-  public clickEventListener(event: any): void {
+  public clickEventListener(event: __esri.MapViewClickEvent): void {
     this.mapView.popup.open({
-      title: 'Hello World',
-      content: 'Cidade fulaninha',
-      location: event.mapPoint
+      title: `x: ${event.x}, y: ${event.y}`,
+      location: event.mapPoint,
+    });
+  }
+
+  public buildPopUpContent(target: any): Promise<any> {
+    console.log('target: ', target);
+    return this.queryCityData(target).then((result) => {
+      console.log('flag');
+      console.log(result);
+    });
+  }
+
+  public queryCityData(target: any): Promise<any> {
+    return new Promise((resolve, rejects) => {
+      loadModules(['esri/tasks/QueryTask', 'esri/tasks/support/Query']).then(
+        ([QueryTask, Query]) => {
+          const query = new Query({
+            geometry: target.graphic.geometry,
+            outFields: ["*"],
+            spatialRelationship: "intersects",
+          });
+
+          QueryTask.execute(query).then((result) => {
+            resolve(result);
+          });
+        }
+      );
     });
   }
 }
